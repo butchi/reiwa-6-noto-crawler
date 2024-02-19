@@ -1,16 +1,20 @@
-// Import puppeteer
-import { url } from 'inspector'
 import puppeteer from 'puppeteer'
 import Papa from 'papaparse'
 
-const kwArr = ['能登', '地震', '防災']
+const iterateLen = 6
+const scrapeLen = 2500
+
+const kwTbl = [
+    ['能登', '石川'],
+    ['地震', '震災'],
+]
 
 const cnt = { value: 0 }
 
 const initCsvStr = `
 url,ttl,desc
 https://www.kantei.go.jp/,,
-https://www.bousai.go.jp/,,
+https://www.pref.ishikawa.lg.jp/,,
 https://www.gov-online.go.jp/,,
 `.slice(1, -1)
 
@@ -30,10 +34,8 @@ const li = Object.fromEntries(
 )
 
 const handler = async _ => {
-    // Launch the browser
     const browser = await puppeteer.launch()
 
-    // Create a page
     const page = await browser.newPage()
 
     const getPage = async url => {
@@ -42,11 +44,10 @@ const handler = async _ => {
         // console.info('fetch: ', url)
 
         try {
-            if (cnt.value > 25000) {
+            if (cnt.value > scrapeLen) {
                 return
             }
 
-            // Go to your site
             await page.goto(url)
 
             cnt.value++
@@ -66,7 +67,9 @@ const handler = async _ => {
             const txtRes = await elm.getProperty('innerText')
             const txtVal = await txtRes.jsonValue()
 
-            const matchKw = kwArr.some(kw => txtVal.includes(kw))
+            const matchKw = kwTbl.every(kwArr =>
+                kwArr.some(kw => txtVal.includes(kw))
+            )
 
             if (matchKw) {
                 const urlObj = new URL(url)
@@ -77,7 +80,7 @@ const handler = async _ => {
                 li[url] = {
                     url: normalUrl,
                     ttl: pageTitleStr.replaceAll('\n', '')?.trim(),
-                    desc: txtVal.slice(0).replaceAll('\n', '') || '',
+                    desc: txtVal.slice(0, 15).replaceAll('\n', '') || '',
                 }
 
                 for (const linkElm of linkElmLi) {
@@ -98,7 +101,11 @@ const handler = async _ => {
                         '.fukui.jp',
                         '.niigata.jp',
                         '.hodatsushimizu.jp',
-                    ].some(domain => hrefObj.origin.endsWith(domain))
+                    ].some(
+                        domain =>
+                            hrefObj.origin.endsWith(domain) &&
+                            !hrefObj.pathname.endsWith('.pdf')
+                    )
 
                     if (li[normalHref] == null && matchHref) {
                         li[normalHref] = {
@@ -121,25 +128,14 @@ const handler = async _ => {
         // await element.dispose()
     }
 
-    for (const item of Object.values(li)) {
-        if (item.ttl == '') {
-            await getPage(item.url)
+    for (let i = 0; i < iterateLen; i++) {
+        for (const item of Object.values(li)) {
+            if (item.ttl == '') {
+                await getPage(item.url)
+            }
         }
     }
 
-    for (const item of Object.values(li)) {
-        if (item.ttl == '') {
-            await getPage(item.url)
-        }
-    }
-
-    for (const item of Object.values(li)) {
-        if (item.ttl == '') {
-            await getPage(item.url)
-        }
-    }
-
-    // Close browser.
     await browser.close()
 }
 
