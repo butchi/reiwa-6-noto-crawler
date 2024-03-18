@@ -1,15 +1,25 @@
 import puppeteer from 'puppeteer'
 import Papa from 'papaparse'
-import fs from 'fs'
+import { DateTime } from 'luxon'
+import Fs from 'fs'
+
+const fs = Fs.promises
 
 const handler = async _ => {
-    const nowDate = new Date()
-    const nowDateStr = nowDate.toISOString()
+    const nowDate = DateTime.now()
+    const nowDateStr = nowDate.toISO()
+
+    const nowFileName = nowDate.startOf('second').toISO({
+        format: 'basic',
+        suppressMilliseconds: true,
+        suppressSeconds: true,
+        includeOffset: false,
+    })
 
     const timeoutMs = 45000
 
     const iterateLen = 3
-    const scrapeLen = 250
+    const scrapeLen = 2500
 
     const placeNameArr = [
         '志賀',
@@ -52,14 +62,36 @@ const handler = async _ => {
         'あわら',
     ]
 
-    const kwTbl = [
-        ['能登', '北陸', '石川', '新潟', '富山', '福井'].concat(placeNameArr),
-        ['地震', '震災', '災害', '防災', '避難'],
-    ]
+    const actionKwArr = ['地震', '震災', '災害', '防災', '避難']
+
+    const placeKwArr = ['能登', '北陸', '石川', '新潟', '富山', '福井'].concat(
+        placeNameArr
+    )
 
     const cnt = { value: 0 }
 
-    const initCsv = {
+    const initExcludeCsv = {
+        value: '',
+        default: `
+url,ttl,createdAt,updatedAt
+`.slice(1, -1),
+    }
+
+    const initFragmentCsv = {
+        value: '',
+        default: `
+url,place,ttl,desc,createdAt,updatedAt
+`.slice(1, -1),
+    }
+
+    const initReadCsv = {
+        value: '',
+        default: `
+url,matchAction,matchPlace,ttl,desc,createdAt,updatedAt
+`.slice(1, -1),
+    }
+
+    const initUnreadCsv = {
         value: '',
         default: `
 url,ttl,desc,createdAt,updatedAt
@@ -70,28 +102,111 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
 `.slice(1, -1),
     }
 
-    const nowFileName = nowDate
-        .toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
-        .replace(/\s/, 'T')
-        .replaceAll(/[/:]/g, '')
-
     try {
-        initCsv.value = fs.readFileSync('./sheet.csv', { encoding: 'utf8' })
+        const fileNameArr = await fs.readdir('./')
+
+        if (fileNameArr.includes('current-exclude.csv')) {
+            initExcludeCsv.value = await fs.readFile('current-exclude.csv', {
+                encoding: 'utf8',
+            })
+        }
+
+        if (fileNameArr.includes('current-fragment.csv')) {
+            initFragmentCsv.value = await fs.readFile('current-fragment.csv', {
+                encoding: 'utf8',
+            })
+        }
+
+        if (fileNameArr.includes('current-read.csv')) {
+            initReadCsv.value = await fs.readFile('current-read.csv', {
+                encoding: 'utf8',
+            })
+        }
+
+        if (fileNameArr.includes('current-unread.csv')) {
+            initUnreadCsv.value = await fs.readFile('current-unread.csv', {
+                encoding: 'utf8',
+            })
+        }
+
+        await fs.writeFile(
+            `${nowFileName}-exclude.csv`,
+            initExcludeCsv.value || initExcludeCsv.default,
+            {
+                encoding: 'utf8',
+            }
+        )
+
+        await fs.writeFile(
+            `${nowFileName}-fragment.csv`,
+            initFragmentCsv.value || initFragmentCsv.default,
+            {
+                encoding: 'utf8',
+            }
+        )
+
+        await fs.writeFile(
+            `${nowFileName}-read.csv`,
+            initReadCsv.value || initReadCsv.default,
+            {
+                encoding: 'utf8',
+            }
+        )
+
+        await fs.writeFile(
+            `${nowFileName}-unread.csv`,
+            initUnreadCsv.value || initUnreadCsv.default,
+            {
+                encoding: 'utf8',
+            }
+        )
     } catch (err) {
-        console.log('err: CSV file cannot open')
+        console.log('err: CSV file cannot read / write')
         // console.log(err)
     }
 
-    fs.writeFileSync(`${nowFileName}.csv`, initCsv.value || initCsv.default, {
-        encoding: 'utf8',
-    })
+    const { data: excludeData } = Papa.parse(
+        initExcludeCsv.value || initExcludeCsv.default,
+        {
+            header: true,
+        }
+    )
 
-    const { data } = Papa.parse(initCsv.value || initCsv.default, {
-        header: true,
-    })
+    const { data: fragmentData } = Papa.parse(
+        initFragmentCsv.value || initFragmentCsv.default,
+        {
+            header: true,
+        }
+    )
 
-    const li = Object.fromEntries(
-        data.map(({ url, place, ttl, desc, createdAt, updatedAt }) => [
+    const { data: readData } = Papa.parse(
+        initReadCsv.value || initReadCsv.default,
+        {
+            header: true,
+        }
+    )
+
+    const { data: unreadData } = Papa.parse(
+        initUnreadCsv.value || initUnreadCsv.default,
+        {
+            header: true,
+        }
+    )
+
+    const excludeLi = Object.fromEntries(
+        excludeData.map(({ url, ttl, createdAt, updatedAt }) => [
+            url,
+            {
+                url,
+                ttl,
+                createdAt,
+                updatedAt,
+            },
+        ])
+    )
+
+    const fragmentLi = Object.fromEntries(
+        fragmentData.map(({ url, place, ttl, desc, createdAt, updatedAt }) => [
             url,
             {
                 url,
@@ -104,6 +219,46 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         ])
     )
 
+    const readLi = Object.fromEntries(
+        readData.map(
+            ({
+                url,
+                matchAction,
+                matchPlace,
+                ttl,
+                desc,
+                createdAt,
+                updatedAt,
+            }) => [
+                url,
+                {
+                    url,
+                    matchAction,
+                    matchPlace,
+                    ttl,
+                    desc,
+                    createdAt,
+                    updatedAt,
+                },
+            ]
+        )
+    )
+
+    const unreadLi = Object.fromEntries(
+        unreadData.map(({ url, ttl, desc, createdAt, updatedAt }) => [
+            url,
+            {
+                url,
+                ttl,
+                desc,
+                createdAt,
+                updatedAt,
+            },
+        ])
+    )
+
+    const excludeUrlArr = Object.values(excludeLi).map(({ url }) => url)
+
     const browser = await puppeteer.launch()
 
     const page = await browser.newPage()
@@ -111,15 +266,23 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
     page.setDefaultNavigationTimeout(timeoutMs)
 
     const getPage = async url => {
-        new Promise(r => setTimeout(r, Math.random() * 15))
+        if (cnt.value > scrapeLen) {
+            return
+        }
+
+        if (excludeUrlArr.includes(url)) {
+            // console.log('skip: ', url)
+
+            delete unreadLi[url]
+
+            return
+        }
+
+        await new Promise(r => setTimeout(r, Math.random() * 15))
 
         console.info('fetch: ', url)
 
         try {
-            if (cnt.value > scrapeLen) {
-                return
-            }
-
             await page.goto(url)
 
             cnt.value++
@@ -135,24 +298,31 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
 
             const mainElm = await page.$(mainQueryStr)
 
-            const txtRes = await mainElm.getProperty('innerText')
-            const txtVal = await txtRes.jsonValue()
+            const txtRes = await mainElm?.getProperty('innerText')
+            const txtVal = await txtRes?.jsonValue()
             const txtVal1Line = txtVal
-                .replaceAll(/[\s\t\u3000]+/g, ' ')
-                .replaceAll('\n', '')
+                ?.replaceAll(/[\s\t\u3000]+/g, ' ')
+                ?.replaceAll('\n', '')
                 ?.trim()
 
-            const isMatchKw = kwTbl.every(kwArr =>
-                kwArr.some(kw => txtVal1Line.includes(kw))
-            )
+            const matchActionKwStr =
+                actionKwArr
+                    ?.filter(kw => txtVal1Line?.includes(kw))
+                    ?.join('&') || ''
+            const matchPlaceKwStr =
+                placeKwArr
+                    ?.filter(kw => txtVal1Line?.includes(kw))
+                    ?.join('&') || ''
+
+            const isMatchKw = matchActionKwStr && matchPlaceKwStr
 
             const urlObj = new URL(url)
             const normalUrl = `${urlObj.origin}${urlObj.pathname}`
 
-            if (isMatchKw) {
-                const ttl =
-                    pageTitleStr.replaceAll('\n', '')?.trim() || '無題のページ'
+            const ttl =
+                pageTitleStr.replaceAll('\n', '')?.trim() || '無題のページ'
 
+            if (isMatchKw) {
                 const linkElmLi = await page.$$('a')
 
                 placeNameArr.forEach(placeName => {
@@ -168,7 +338,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
 
                     const urlWithFrag = normalUrl + '#:~:text=' + placeName
 
-                    li[urlWithFrag] = {
+                    fragmentLi[urlWithFrag] = {
                         url: urlWithFrag,
                         place: placeName,
                         ttl,
@@ -177,15 +347,20 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                         updatedAt: nowDateStr,
                     }
 
-                    const { createdAt } = li[normalUrl] || nowDateStr
+                    const createdAt =
+                        fragmentLi[normalUrl]?.createdAt || nowDateStr
 
-                    li[normalUrl] = {
+                    readLi[normalUrl] = {
                         url: normalUrl,
+                        matchAction: matchActionKwStr,
+                        matchPlace: matchPlaceKwStr,
                         ttl,
-                        desc: '',
+                        desc,
                         createdAt,
                         updatedAt: nowDateStr,
                     }
+
+                    delete unreadLi[normalUrl]
                 })
 
                 for (const linkElm of linkElmLi) {
@@ -196,10 +371,14 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                     const labelValTrim = labelVal.replaceAll('\n', '').trim()
                     const hrefVal = await hrefRes.jsonValue()
 
+                    if (!hrefVal) {
+                        continue
+                    }
+
                     const hrefObj = new URL(hrefVal)
                     const normalHref = `${hrefObj.origin}${hrefObj.pathname}`
 
-                    const isNewcomer = li[normalHref] == null
+                    const isNewcomer = fragmentLi[normalHref] == null
 
                     const isMatchDomain = [
                         '.go.jp',
@@ -214,45 +393,49 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                     ].some(domain => hrefObj.origin.endsWith(domain))
 
                     const isMatchPdf = hrefObj.pathname.endsWith('.pdf')
-                    const isMatchBlackExt = [
+                    const isMatchExcludeExt = [
                         '.xml',
                         '.zip',
                         '.rdf',
-                        '.xls',
-                        '.xlsm',
                         '.xlsx',
-                        '.doc',
-                        '.docm',
                         '.docx',
-                        '.ppt',
-                        '.pptm',
-                        '.pptx',
+                        '.xls',
+                        '.doc',
+                        '.csv',
                         '.jpg',
                         '.jpeg',
                         '.png',
                     ].some(ext => hrefObj.pathname.endsWith(ext))
 
                     if (isMatchDomain && isNewcomer) {
-                        const isMatchTtlKw = kwTbl.every(kwArr =>
-                            kwArr.some(kw => labelValTrim.includes(kw))
-                        )
+                        const matchTtlActionKwStr = actionKwArr
+                            .filter(kw => labelValTrim.includes(kw))
+                            .join('&')
+                        const matchTtlPlaceKwStr = placeKwArr
+                            .filter(kw => labelValTrim.includes(kw))
+                            .join('&')
+
+                        const isMatchTtlKw =
+                            matchTtlActionKwStr && matchTtlPlaceKwStr
 
                         if (isMatchPdf && isMatchTtlKw) {
                             const ttlLabel = labelValTrim
 
                             if (isMatchTtlKw) {
-                                li[normalHref] = {
+                                readLi[normalHref] = {
                                     url: normalHref,
+                                    matchAction: matchTtlActionKwStr,
+                                    matchPlace: matchTtlPlaceKwStr,
                                     ttl: ttlLabel,
                                     desc: `「${ttl}」(${hrefObj.hostname})からのPDFリンク`,
                                     createdAt: nowDateStr,
                                     updatedAt: nowDateStr,
                                 }
                             }
-                        } else if (!isMatchPdf && !isMatchBlackExt) {
+                        } else if (!isMatchPdf && !isMatchExcludeExt) {
                             const ttlLabel = labelValTrim || '不明なページ'
 
-                            li[normalHref] = {
+                            unreadLi[normalHref] = {
                                 url: normalHref,
                                 ttl: ttlLabel,
                                 desc: `「${ttl}」(${hrefObj.hostname})からのページリンク`,
@@ -263,31 +446,26 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                     }
                 }
             } else {
-                const { createdAt } = li[normalUrl] || nowDateStr
+                const ttlLabel = ttl || '不明なページ'
 
-                li[normalUrl] = {
+                const createdAt = excludeLi[normalUrl]?.createdAt || nowDateStr
+
+                excludeLi[normalUrl] = {
                     url: normalUrl,
-                    ttl: '',
-                    desc: '',
+                    ttl: ttlLabel,
                     createdAt,
                     updatedAt: nowDateStr,
                 }
             }
         } catch (err) {
-            // console.log('error: ', url)
-            // console.log(err)
+            console.log('error: ', url)
+            console.log(err)
         }
-
-        // // Do something with element...
-        // await element.click() // Just an example.
-
-        // // Dispose of handle
-        // await element.dispose()
     }
 
     for (let i = 0; i < iterateLen; i++) {
-        for (const item of Object.values(li)) {
-            if (item.updatedAt == '') {
+        for (const item of Object.values(unreadLi)) {
+            if (item?.url) {
                 await getPage(item.url)
             }
         }
@@ -296,6 +474,10 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
     await browser.close()
 
     const idxItm = item => {
+        if (item?.url == null) {
+            return ''
+        }
+
         const { host, pathname } = new URL(item.url)
 
         const prefix = [
@@ -318,15 +500,63 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         )
     }
 
-    const csvStr = Papa.unparse({
-        fields: ['url', 'place', 'ttl', 'desc', 'createdAt', 'updatedAt'],
-        data: Object.values(li).sort((a, b) =>
-            idxItm(a) > idxItm(b) ? 1 : -1
-        ),
-    })
+    if (Object.keys(excludeLi).length > 0) {
+        const excludeCsvStr = Papa.unparse({
+            fields: ['url', 'ttl', 'createdAt', 'updatedAt'],
+            data: Object.values(excludeLi).sort((a, b) =>
+                idxItm(a) > idxItm(b) ? 1 : -1
+            ),
+        })
 
-    fs.writeFileSync('sheet.csv', csvStr, { encoding: 'utf8' })
-    // console.log(Object.entries(li).length)
+        await fs.writeFile('current-exclude.csv', excludeCsvStr, {
+            encoding: 'utf8',
+        })
+    }
+
+    if (Object.keys(fragmentLi).length > 0) {
+        const fragmentCsvStr = Papa.unparse({
+            fields: ['url', 'place', 'ttl', 'desc', 'createdAt', 'updatedAt'],
+            data: Object.values(fragmentLi).sort((a, b) =>
+                idxItm(a) > idxItm(b) ? 1 : -1
+            ),
+        })
+
+        await fs.writeFile('current-fragment.csv', fragmentCsvStr, {
+            encoding: 'utf8',
+        })
+    }
+
+    if (Object.keys(readLi).length > 0) {
+        const readCsvStr = Papa.unparse({
+            fields: [
+                'url',
+                'matchAction',
+                'matchPlace',
+                'ttl',
+                'desc',
+                'createdAt',
+                'updatedAt',
+            ],
+            data: Object.values(readLi).sort((a, b) =>
+                idxItm(a) > idxItm(b) ? 1 : -1
+            ),
+        })
+
+        await fs.writeFile('current-read.csv', readCsvStr, { encoding: 'utf8' })
+    }
+
+    if (Object.keys(unreadLi).length > 0) {
+        const unreadCsvStr = Papa.unparse({
+            fields: ['url', 'ttl', 'desc', 'createdAt', 'updatedAt'],
+            data: Object.values(unreadLi).sort((a, b) =>
+                idxItm(a) > idxItm(b) ? 1 : -1
+            ),
+        })
+
+        await fs.writeFile('current-unread.csv', unreadCsvStr, {
+            encoding: 'utf8',
+        })
+    }
 }
 
 handler()
