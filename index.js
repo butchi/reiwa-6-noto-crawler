@@ -16,10 +16,20 @@ const handler = async _ => {
         includeOffset: false,
     })
 
+    const fetchUrlArr = []
+
     const timeoutMs = 45000
 
     const iterateLen = 3
     const scrapeLen = 2500
+
+    await fs.appendFile(
+        `${nowFileName}.log`,
+        DateTime.now().toISO() + ': start' + '\n',
+        {
+            encoding: 'utf8',
+        }
+    )
 
     const placeNameArr = [
         '志賀',
@@ -162,6 +172,14 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         )
     } catch (err) {
         console.log('err: CSV file cannot read / write')
+
+        await fs.appendFile(
+            `${nowFileName}.log`,
+            DateTime.now().toISO() + ': ' + err.toString() + '\n',
+            {
+                encoding: 'utf8',
+            }
+        )
         // console.log(err)
     }
 
@@ -281,6 +299,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         await new Promise(r => setTimeout(r, Math.random() * 15))
 
         console.info('fetch: ', url)
+        fetchUrlArr.push(url)
 
         try {
             await page.goto(url)
@@ -460,6 +479,19 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         } catch (err) {
             console.log('error: ', url)
             console.log(err)
+
+            await fs.appendFile(
+                `${nowFileName}.log`,
+                DateTime.now().toISO() +
+                    ': ' +
+                    url +
+                    ' ' +
+                    err.toString() +
+                    '\n',
+                {
+                    encoding: 'utf8',
+                }
+            )
         }
     }
 
@@ -557,6 +589,19 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             encoding: 'utf8',
         })
     }
+
+    await fs.appendFile(
+        `${nowFileName}.log`,
+        fetchUrlArr
+            .map(url => DateTime.now().toISO() + ': ' + url + '\n')
+            .join('') +
+            DateTime.now().toISO() +
+            ': succeed' +
+            '\n',
+        {
+            encoding: 'utf8',
+        }
+    )
 }
 
 handler()
