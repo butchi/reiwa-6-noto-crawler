@@ -596,7 +596,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             .map(url => DateTime.now().toISO() + ': ' + url + '\n')
             .join('') +
             DateTime.now().toISO() +
-            ': succeed' +
+            ': end' +
             '\n',
         {
             encoding: 'utf8',
