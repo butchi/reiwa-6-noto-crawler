@@ -412,6 +412,8 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                     ].some(domain => hrefObj.origin.endsWith(domain))
 
                     const isMatchPdf = hrefObj.pathname.endsWith('.pdf')
+
+                    // TODO: 除外に限界があるので拡張子はホワイトリスト制にしたい
                     const isMatchExcludeExt = [
                         '.xml',
                         '.zip',
@@ -421,6 +423,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
                         '.xls',
                         '.doc',
                         '.csv',
+                        '.rtf',
                         '.jpg',
                         '.jpeg',
                         '.png',
