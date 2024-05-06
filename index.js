@@ -25,7 +25,7 @@ const handler = async _ => {
 
     await fs.appendFile(
         `${nowFileName}.log`,
-        DateTime.now().toISO() + ': start' + '\n',
+        DateTime.now().toISO() + ' start' + '\n',
         {
             encoding: 'utf8',
         }
@@ -175,7 +175,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
 
         await fs.appendFile(
             `${nowFileName}.log`,
-            DateTime.now().toISO() + ': ' + err.toString() + '\n',
+            DateTime.now().toISO() + ' ' + err.toString() + '\n',
             {
                 encoding: 'utf8',
             }
@@ -483,7 +483,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             await fs.appendFile(
                 `${nowFileName}.log`,
                 DateTime.now().toISO() +
-                    ': ' +
+                    ' ' +
                     url +
                     ' ' +
                     err.toString() +
@@ -593,10 +593,10 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
     await fs.appendFile(
         `${nowFileName}.log`,
         fetchUrlArr
-            .map(url => DateTime.now().toISO() + ': ' + url + '\n')
+            .map(url => DateTime.now().toISO() + ' ' + url + '\n')
             .join('') +
             DateTime.now().toISO() +
-            ': end' +
+            ' end' +
             '\n',
         {
             encoding: 'utf8',
