@@ -20,8 +20,8 @@ const handler = async _ => {
 
     const timeoutMs = 45000
 
-    const iterateLen = 3
-    const scrapeLen = 2500
+    const iterateLen = 5
+    const scrapeLen = 5000
 
     await fs.appendFile(
         `${nowFileName}.log`,
