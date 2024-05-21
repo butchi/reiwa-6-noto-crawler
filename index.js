@@ -313,7 +313,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             const pageTitleStr = typeof titleVal === 'string' ? titleVal : ''
 
             const mainQueryStr =
-                'article, main, .contents, [id*="main" i], [class*="main" i], [class*="content" i], [class*="container" i], [class*="container" i], [class*="body" i], body'
+                'article, main, .contents, [id*="main" i], [class*="main" i], [class*="content" i], [class*="container" i], [class*="body" i], body'
 
             const mainElm = await page.$(mainQueryStr)
 
