@@ -23,13 +23,17 @@ const handler = async _ => {
     const iterateLen = 5
     const scrapeLen = 5000
 
-    await fs.appendFile(
-        `${nowFileName}.log`,
-        DateTime.now().toISO() + ' start' + '\n',
-        {
-            encoding: 'utf8',
-        }
-    )
+    const appendLog = async (date, message) => {
+        await fs.appendFile(
+            `${nowFileName}.log`,
+            date.toISO() + ' ' + message + '\n',
+            {
+                encoding: 'utf8',
+            }
+        )
+    }
+
+    await appendLog(DateTime.now(), 'start')
 
     const placeNameArr = [
         '志賀',
@@ -173,13 +177,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
     } catch (err) {
         console.log('err: CSV file cannot read / write')
 
-        await fs.appendFile(
-            `${nowFileName}.log`,
-            DateTime.now().toISO() + ' ' + err.toString() + '\n',
-            {
-                encoding: 'utf8',
-            }
-        )
+        await appendLog(DateTime.now(), err.toString())
         // console.log(err)
     }
 
@@ -483,18 +481,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             console.log('error: ', url)
             console.log(err)
 
-            await fs.appendFile(
-                `${nowFileName}.log`,
-                DateTime.now().toISO() +
-                    ' ' +
-                    url +
-                    ' ' +
-                    err.toString() +
-                    '\n',
-                {
-                    encoding: 'utf8',
-                }
-            )
+            await appendLog(DateTime.now(), url + ' ' + err.toString())
         }
     }
 
@@ -593,18 +580,11 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         })
     }
 
-    await fs.appendFile(
-        `${nowFileName}.log`,
-        fetchUrlArr
-            .map(url => DateTime.now().toISO() + ' ' + url + '\n')
-            .join('') +
-            DateTime.now().toISO() +
-            ' end' +
-            '\n',
-        {
-            encoding: 'utf8',
-        }
-    )
+    for (const url of fetchUrlArr) {
+        await appendLog(DateTime.now(), 'fetch ' + url)
+    }
+
+    await appendLog(DateTime.now(), 'end')
 }
 
 handler()
