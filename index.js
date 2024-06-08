@@ -16,10 +16,24 @@ const handler = async _ => {
         includeOffset: false,
     })
 
+    const fetchUrlArr = []
+
     const timeoutMs = 45000
 
     const iterateLen = 5
     const scrapeLen = 5000
+
+    const appendLog = async (date, message) => {
+        await fs.appendFile(
+            `${nowFileName}.log`,
+            date.toISO() + ' ' + message + '\n',
+            {
+                encoding: 'utf8',
+            }
+        )
+    }
+
+    await appendLog(DateTime.now(), 'start')
 
     const placeNameArr = [
         '志賀',
@@ -162,6 +176,8 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         )
     } catch (err) {
         console.log('err: CSV file cannot read / write')
+
+        await appendLog(DateTime.now(), err.toString())
         // console.log(err)
     }
 
@@ -281,6 +297,7 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         await new Promise(r => setTimeout(r, Math.random() * 15))
 
         console.info('fetch: ', url)
+        fetchUrlArr.push(url)
 
         try {
             await page.goto(url)
@@ -463,6 +480,8 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
         } catch (err) {
             console.log('error: ', url)
             console.log(err)
+
+            await appendLog(DateTime.now(), url + ' ' + err.toString())
         }
     }
 
@@ -560,6 +579,12 @@ https://www.jishin.go.jp/link/,関連機関リンク | 地震本部,,,
             encoding: 'utf8',
         })
     }
+
+    for (const url of fetchUrlArr) {
+        await appendLog(DateTime.now(), 'fetch ' + url)
+    }
+
+    await appendLog(DateTime.now(), 'end')
 }
 
 handler()
